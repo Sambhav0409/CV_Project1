@@ -10,18 +10,9 @@ with open(labels_path, "r") as f:
 
 net = cv2.dnn.readNetFromDarknet(config_path, weights_path)
 layer_names = net.getLayerNames()
+output_layers = [layer_names[i - 1] for i in net.getUnconnectedOutLayers().flatten()]
 
-unconnected_out_layers = net.getUnconnectedOutLayers()
-
-if isinstance(unconnected_out_layers, np.ndarray):
-    output_layers = [layer_names[i[0] - 1] for i in unconnected_out_layers]
-elif isinstance(unconnected_out_layers, int):
-    output_layers = [layer_names[unconnected_out_layers - 1]]
-else:
-    output_layers = [layer_names[i - 1] for i in unconnected_out_layers]
-
-video_path = "videoplayback.webm"
-
+video_path = "sample3.mp4"
 cap = cv2.VideoCapture(video_path)
 
 while cap.isOpened():
@@ -30,7 +21,7 @@ while cap.isOpened():
         break
 
     height, width = frame.shape[:2]
-    blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (416, 416), swapRB=True, crop=False)
+    blob = cv2.dnn.blobFromImage(frame, 1 / 255.0, (640, 640), swapRB=True, crop=False)
     net.setInput(blob)
     outputs = net.forward(output_layers)
 
@@ -51,13 +42,21 @@ while cap.isOpened():
 
     indices = cv2.dnn.NMSBoxes(boxes, confidences, 0.5, 0.4)
 
-    for i in indices.flatten():
-        x, y, w, h = boxes[i]
-        label = str(labels[class_ids[i]])
-        confidence = confidences[i]
-        color = (0, 255, 0) if label == "person" else (0, 0, 255)
-        cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
-        cv2.putText(frame, f"{label}: {confidence:.2f}", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+    person_count = 0  # Initialize person count
+
+    if len(indices) > 0:
+        for i in indices.flatten():
+            x, y, w, h = boxes[i]
+            label = str(labels[class_ids[i]])
+            confidence = confidences[i]
+            color = (0, 255, 0) if label == "person" else (0, 0, 255)
+            cv2.rectangle(frame, (x, y), (x + w, y + h), color, 2)
+            cv2.putText(frame, f"{label}: {confidence:.2f}", (x, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+            if label == "person":
+                person_count += 1
+
+    # Display number of persons on screen
+    cv2.putText(frame, f"Persons: {person_count}", (20, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 0), 2)
 
     cv2.imshow("Video Analysis", frame)
     if cv2.waitKey(1) & 0xFF == ord('q'):
